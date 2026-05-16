@@ -39,4 +39,8 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-module.exports = { detectVehicleType, formatPlate, calculateFare, formatCurrency };
+function colombiaNow() {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Bogota' }).replace('T', ' ');
+}
+
+module.exports = { detectVehicleType, formatPlate, calculateFare, formatCurrency, colombiaNow };

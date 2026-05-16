@@ -1,5 +1,5 @@
 const { pool } = require('../config/database');
-const { detectVehicleType, formatPlate } = require('../utils/helpers');
+const { detectVehicleType, formatPlate, colombiaNow } = require('../utils/helpers');
 
 async function registerEntry(req, res) {
   const { plate } = req.body;
@@ -37,8 +37,8 @@ async function registerEntry(req, res) {
 
     const space = spaces[0];
     const [result] = await conn.query(
-      'INSERT INTO vehicles (plate, type, entry_time, space_id, operator_id) VALUES (?, ?, NOW(), ?, ?)',
-      [formattedPlate, vehicleType, space.id, req.user.id]
+      'INSERT INTO vehicles (plate, type, entry_time, space_id, operator_id) VALUES (?, ?, ?, ?, ?)',
+      [formattedPlate, vehicleType, colombiaNow(), space.id, req.user.id]
     );
 
     await conn.query("UPDATE spaces SET status = 'occupied' WHERE id = ?", [space.id]);
@@ -54,7 +54,7 @@ async function registerEntry(req, res) {
     res.status(201).json({
       success: true,
       message: 'Vehículo registrado',
-      data: { id: result.insertId, plate: formattedPlate, type: vehicleType, space: space.number, entryTime: new Date() },
+      data: { id: result.insertId, plate: formattedPlate, type: vehicleType, space: space.number, entryTime: colombiaNow() },
       alert: pct >= 100 ? { level: 'critical', message: 'Parqueadero al 100% de capacidad' }
              : pct >= 90 ? { level: 'warning', message: `Parqueadero al ${pct}% de capacidad` }
              : null,
@@ -71,11 +71,12 @@ async function getActive(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT v.*, s.number as space_number,
-       TIMESTAMPDIFF(MINUTE, v.entry_time, NOW()) as minutes_parked
+       TIMESTAMPDIFF(MINUTE, v.entry_time, ?) as minutes_parked
        FROM vehicles v
        JOIN spaces s ON v.space_id = s.id
        WHERE v.exit_time IS NULL
-       ORDER BY v.entry_time DESC`
+       ORDER BY v.entry_time DESC`,
+      [colombiaNow()]
     );
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -131,13 +132,13 @@ async function getVehicleForExit(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT v.*, s.number as space_number,
-       TIMESTAMPDIFF(MINUTE, v.entry_time, NOW()) as minutes_parked,
+       TIMESTAMPDIFF(MINUTE, v.entry_time, ?) as minutes_parked,
        r.rate_per_hour
        FROM vehicles v
        JOIN spaces s ON v.space_id = s.id
        JOIN rates r ON r.vehicle_type = v.type AND r.active = 1
        WHERE v.plate = ? AND v.exit_time IS NULL`,
-      [formattedPlate]
+      [colombiaNow(), formattedPlate]
     );
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Vehículo no encontrado o ya salió' });
