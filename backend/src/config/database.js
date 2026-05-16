@@ -10,7 +10,12 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  timezone: '-05:00',
+  timezone: '+00:00',
+});
+
+// Forzar zona horaria Colombia en cada conexión para que NOW() devuelva hora local
+pool.pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '-05:00'");
 });
 
 async function testConnection() {

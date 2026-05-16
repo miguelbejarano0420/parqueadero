@@ -11,12 +11,16 @@ export function formatDate(dateStr) {
   return new Intl.DateTimeFormat('es-CO', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: 'America/Bogota',
   }).format(new Date(dateStr));
 }
 
 export function formatTime(dateStr) {
   if (!dateStr) return '-';
-  return new Intl.DateTimeFormat('es-CO', { timeStyle: 'short' }).format(new Date(dateStr));
+  return new Intl.DateTimeFormat('es-CO', {
+    timeStyle: 'short',
+    timeZone: 'America/Bogota',
+  }).format(new Date(dateStr));
 }
 
 export function formatDuration(minutes) {

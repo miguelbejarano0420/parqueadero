@@ -5,20 +5,12 @@ import { formatCurrency, formatDate, paymentMethodLabel, vehicleTypeLabel } from
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'];
 
-function formatMonthLabel(period) {
-  if (!period || !String(period).includes('-')) return period;
-  const [year, month] = String(period).split('-');
-  const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  return `${names[parseInt(month, 10) - 1]} ${year}`;
-}
-
 export default function Reports() {
   const [tab, setTab] = useState('daily');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [occupancyFilters, setOccupancyFilters] = useState({
     from: new Date().toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
-    groupBy: 'day',
   });
   const [dailyData, setDailyData] = useState(null);
   const [occupancyData, setOccupancyData] = useState(null);
@@ -179,17 +171,16 @@ export default function Reports() {
       {tab === 'occupancy' && (
         <div className="space-y-6">
           <div className="flex flex-wrap gap-3 items-center">
-            <input type="date" className="input-field w-40" value={occupancyFilters.from}
-              onChange={e => setOccupancyFilters(f => ({ ...f, from: e.target.value }))} />
-            <span className="text-gray-400">—</span>
-            <input type="date" className="input-field w-40" value={occupancyFilters.to}
-              onChange={e => setOccupancyFilters(f => ({ ...f, to: e.target.value }))} />
-            <select className="input-field w-36" value={occupancyFilters.groupBy}
-              onChange={e => setOccupancyFilters(f => ({ ...f, groupBy: e.target.value }))}>
-              <option value="hour">Por hora</option>
-              <option value="day">Por día</option>
-              <option value="month">Por mes</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">Desde</label>
+              <input type="date" className="input-field w-40" value={occupancyFilters.from}
+                onChange={e => setOccupancyFilters(f => ({ ...f, from: e.target.value }))} />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">Hasta</label>
+              <input type="date" className="input-field w-40" value={occupancyFilters.to}
+                onChange={e => setOccupancyFilters(f => ({ ...f, to: e.target.value }))} />
+            </div>
             <button onClick={loadOccupancy} className="btn-primary text-sm py-2">Generar</button>
           </div>
 
@@ -217,11 +208,9 @@ export default function Reports() {
               )}
 
               <div className="card">
-                <h3 className="font-semibold text-gray-800 mb-1">Vehículos por período</h3>
+                <h3 className="font-semibold text-gray-800 mb-1">Vehículos por día</h3>
                 <p className="text-xs text-gray-400 mb-4">
-                  {occupancyFilters.groupBy === 'hour' && 'Ingresos agrupados por hora del día'}
-                  {occupancyFilters.groupBy === 'day'  && 'Ingresos agrupados por día'}
-                  {occupancyFilters.groupBy === 'month' && 'Ingresos agrupados por mes'}
+                  Ingresos del {occupancyFilters.from} al {occupancyFilters.to}
                 </p>
 
                 {occupancyData.data.length === 0 ? (
@@ -234,20 +223,17 @@ export default function Reports() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={occupancyData.data} margin={{ bottom: 20 }}>
+                    <BarChart data={occupancyData.data} margin={{ bottom: 30 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis
                         dataKey="label"
                         tick={{ fontSize: 11 }}
-                        tickFormatter={v => occupancyFilters.groupBy === 'month' ? formatMonthLabel(v) : v}
-                        angle={occupancyFilters.groupBy === 'day' ? -35 : 0}
-                        textAnchor={occupancyFilters.groupBy === 'day' ? 'end' : 'middle'}
+                        angle={-35}
+                        textAnchor="end"
                         interval={0}
                       />
                       <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <Tooltip
-                        labelFormatter={v => occupancyFilters.groupBy === 'month' ? formatMonthLabel(v) : v}
-                      />
+                      <Tooltip />
                       <Legend />
                       <Bar dataKey="cars" name="Carros" fill="#3b82f6" radius={[4, 4, 0, 0]} stackId="a" />
                       <Bar dataKey="motorcycles" name="Motos" fill="#8b5cf6" radius={[4, 4, 0, 0]} stackId="a" />

@@ -54,31 +54,22 @@ async function dailyIncome(req, res) {
 }
 
 async function occupancy(req, res) {
-  const { from, to, groupBy } = req.query;
+  const { from, to } = req.query;
   const fromDate = from || new Date().toISOString().split('T')[0];
   const toDate = to || fromDate;
 
   try {
-    let groupExpr, labelExpr;
-    if (groupBy === 'month') {
-      groupExpr = "DATE_FORMAT(entry_time, '%Y-%m')";
-      labelExpr = "DATE_FORMAT(entry_time, '%Y-%m')";
-    } else if (groupBy === 'day') {
-      groupExpr = "DATE_FORMAT(entry_time, '%Y-%m-%d')";
-      labelExpr = "DATE_FORMAT(entry_time, '%d/%m/%Y')";
-    } else {
-      groupExpr = 'HOUR(entry_time)';
-      labelExpr = "CONCAT(LPAD(HOUR(entry_time), 2, '0'), ':00')";
-    }
-
+    // Siempre agrupa por día dentro del rango seleccionado
     const [rows] = await pool.query(
-      `SELECT ${groupExpr} as period, ${labelExpr} as label,
-       COUNT(*) as total_vehicles,
-       COUNT(CASE WHEN type = 'car' THEN 1 END) as cars,
-       COUNT(CASE WHEN type = 'motorcycle' THEN 1 END) as motorcycles
+      `SELECT
+         DATE_FORMAT(entry_time, '%Y-%m-%d') as period,
+         DATE_FORMAT(entry_time, '%d/%m/%Y')  as label,
+         COUNT(*) as total_vehicles,
+         COUNT(CASE WHEN type = 'car' THEN 1 END) as cars,
+         COUNT(CASE WHEN type = 'motorcycle' THEN 1 END) as motorcycles
        FROM vehicles
        WHERE DATE(entry_time) BETWEEN ? AND ?
-       GROUP BY ${groupExpr}
+       GROUP BY DATE_FORMAT(entry_time, '%Y-%m-%d')
        ORDER BY period`,
       [fromDate, toDate]
     );
