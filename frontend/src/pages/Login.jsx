@@ -89,18 +89,16 @@ export default function Login() {
             <div className="grid grid-cols-2 gap-3 text-xs text-gray-500">
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="font-semibold text-gray-700 mb-1">Administrador</p>
-                <p>usuario: <span className="font-mono">admin</span></p>
                 <p>Gestión completa del sistema</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="font-semibold text-gray-700 mb-1">Operario</p>
-                <p>Creado por el admin</p>
                 <p>Registro de vehículos</p>
               </div>
             </div>
           </div>
         </div>
-        <p className="text-center text-blue-300 text-xs mt-6">© 2024 ParkSystem · Todos los derechos reservados</p>
+        <p className="text-center text-blue-300 text-xs mt-6">© 2026 ParkSystem · Todos los derechos reservados</p>
       </div>
     </div>
   );
