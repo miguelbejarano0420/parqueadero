@@ -11,9 +11,10 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   timezone: '+00:00',
+  connectTimeout: 10000,
 });
 
-// Forzar zona horaria Colombia en cada nueva conexión física del pool
+// Zona horaria Colombia en cada conexión física del pool
 const underlying = pool.pool || pool;
 if (typeof underlying.on === 'function') {
   underlying.on('connection', (conn) => {
@@ -21,6 +22,21 @@ if (typeof underlying.on === 'function') {
       if (err) console.error('Error setting timezone:', err.message);
     });
   });
+
+  // Tolerancia a fallos: loguear errores del pool sin colapsar el proceso
+  underlying.on('error', (err) => {
+    console.error('Pool error (reconexión automática en curso):', err.message);
+  });
+}
+
+// Envuelve cualquier consulta en un timeout de 30 segundos
+async function withTimeout(queryFn, label = 'query') {
+  return Promise.race([
+    queryFn(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout de 30s superado en: ${label}`)), 30000)
+    ),
+  ]);
 }
 
 async function testConnection() {
@@ -35,4 +51,4 @@ async function testConnection() {
   }
 }
 
-module.exports = { pool, testConnection };
+module.exports = { pool, testConnection, withTimeout };
