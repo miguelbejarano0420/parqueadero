@@ -21,16 +21,15 @@ async function dailyIncome(req, res) {
          COUNT(CASE WHEN v.type = 'motorcycle' THEN 1 END) as moto_count
        FROM payments p
        JOIN vehicles v ON p.vehicle_id = v.id
-       WHERE DATE(CONVERT_TZ(p.payment_time, '+00:00', '-05:00')) = ?`,
+       WHERE DATE(p.payment_time) = ?`,
       [targetDate]
     );
 
     const [byHour] = await pool.query(
-      `SELECT HOUR(CONVERT_TZ(p.payment_time, '+00:00', '-05:00')) as hour,
-              COUNT(*) as count, SUM(p.amount) as income
+      `SELECT HOUR(p.payment_time) as hour, COUNT(*) as count, SUM(p.amount) as income
        FROM payments p
-       WHERE DATE(CONVERT_TZ(p.payment_time, '+00:00', '-05:00')) = ?
-       GROUP BY HOUR(CONVERT_TZ(p.payment_time, '+00:00', '-05:00'))
+       WHERE DATE(p.payment_time) = ?
+       GROUP BY HOUR(p.payment_time)
        ORDER BY hour`,
       [targetDate]
     );
@@ -40,7 +39,7 @@ async function dailyIncome(req, res) {
        FROM payments p
        JOIN vehicles v ON p.vehicle_id = v.id
        JOIN users u ON p.operator_id = u.id
-       WHERE DATE(CONVERT_TZ(p.payment_time, '+00:00', '-05:00')) = ?
+       WHERE DATE(p.payment_time) = ?
        ORDER BY p.payment_time DESC`,
       [targetDate]
     );
@@ -65,14 +64,14 @@ async function occupancy(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT
-         DATE_FORMAT(CONVERT_TZ(entry_time, '+00:00', '-05:00'), '%Y-%m-%d') as period,
-         MIN(DATE_FORMAT(CONVERT_TZ(entry_time, '+00:00', '-05:00'), '%d/%m/%Y')) as label,
-         COUNT(*)                                                               as total_vehicles,
-         COUNT(CASE WHEN type = 'car' THEN 1 END)                              as cars,
-         COUNT(CASE WHEN type = 'motorcycle' THEN 1 END)                       as motorcycles
+         DATE_FORMAT(entry_time, '%Y-%m-%d')      as period,
+         MIN(DATE_FORMAT(entry_time, '%d/%m/%Y')) as label,
+         COUNT(*)                                  as total_vehicles,
+         COUNT(CASE WHEN type = 'car' THEN 1 END)        as cars,
+         COUNT(CASE WHEN type = 'motorcycle' THEN 1 END) as motorcycles
        FROM vehicles
-       WHERE DATE(CONVERT_TZ(entry_time, '+00:00', '-05:00')) BETWEEN ? AND ?
-       GROUP BY DATE_FORMAT(CONVERT_TZ(entry_time, '+00:00', '-05:00'), '%Y-%m-%d')
+       WHERE DATE(entry_time) BETWEEN ? AND ?
+       GROUP BY DATE_FORMAT(entry_time, '%Y-%m-%d')
        ORDER BY period`,
       [fromDate, toDate]
     );
