@@ -5,17 +5,26 @@ import { formatCurrency, formatDate, paymentMethodLabel, vehicleTypeLabel } from
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'];
 
+function formatMonthLabel(period) {
+  if (!period || !String(period).includes('-')) return period;
+  const [year, month] = String(period).split('-');
+  const names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${names[parseInt(month, 10) - 1]} ${year}`;
+}
+
 export default function Reports() {
   const [tab, setTab] = useState('daily');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [occupancyFilters, setOccupancyFilters] = useState({
     from: new Date().toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
-    groupBy: 'hour',
+    groupBy: 'day',
   });
   const [dailyData, setDailyData] = useState(null);
   const [occupancyData, setOccupancyData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [occError, setOccError] = useState('');
+  const [dailyError, setDailyError] = useState('');
 
   useEffect(() => {
     if (tab === 'daily') loadDaily();
@@ -24,11 +33,12 @@ export default function Reports() {
 
   async function loadDaily() {
     setLoading(true);
+    setDailyError('');
     try {
       const res = await api.get(`/reports/daily?date=${date}`);
       setDailyData(res.data);
     } catch (err) {
-      console.error(err);
+      setDailyError(err.response?.data?.message || 'Error al cargar el reporte');
     } finally {
       setLoading(false);
     }
@@ -36,12 +46,14 @@ export default function Reports() {
 
   async function loadOccupancy() {
     setLoading(true);
+    setOccError('');
+    setOccupancyData(null);
     try {
       const p = new URLSearchParams(occupancyFilters);
       const res = await api.get(`/reports/occupancy?${p}`);
       setOccupancyData(res.data);
     } catch (err) {
-      console.error(err);
+      setOccError(err.response?.data?.message || 'Error al cargar el reporte de ocupación');
     } finally {
       setLoading(false);
     }
@@ -72,6 +84,10 @@ export default function Reports() {
               onChange={e => setDate(e.target.value)} />
             <button onClick={loadDaily} className="btn-primary text-sm py-2">Generar</button>
           </div>
+
+          {dailyError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{dailyError}</div>
+          )}
 
           {loading && <Spinner />}
 
@@ -177,6 +193,10 @@ export default function Reports() {
             <button onClick={loadOccupancy} className="btn-primary text-sm py-2">Generar</button>
           </div>
 
+          {occError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{occError}</div>
+          )}
+
           {loading && <Spinner />}
 
           {!loading && occupancyData && (
@@ -185,11 +205,11 @@ export default function Reports() {
                 <div className="grid grid-cols-2 gap-4">
                   {occupancyData.spaces.map(s => (
                     <div key={s.type} className="card">
-                      <p className="text-sm text-gray-500 mb-1">{s.type === 'car' ? 'Carros' : 'Motos'}</p>
+                      <p className="text-sm text-gray-500 mb-1">{s.type === 'car' ? '🚗 Carros (ahora)' : '🏍️ Motos (ahora)'}</p>
                       <p className="text-2xl font-bold">{s.occupied}/{s.total}</p>
                       <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
                         <div className="h-2 rounded-full bg-blue-500"
-                          style={{ width: `${Math.round((s.occupied / s.total) * 100)}%` }} />
+                          style={{ width: `${s.total > 0 ? Math.round((s.occupied / s.total) * 100) : 0}%` }} />
                       </div>
                     </div>
                   ))}
@@ -197,20 +217,51 @@ export default function Reports() {
               )}
 
               <div className="card">
-                <h3 className="font-semibold text-gray-800 mb-4">Vehículos por período</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={occupancyData.data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="cars" name="Carros" fill="#3b82f6" radius={[4, 4, 0, 0]} stackId="a" />
-                    <Bar dataKey="motorcycles" name="Motos" fill="#8b5cf6" radius={[4, 4, 0, 0]} stackId="a" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <h3 className="font-semibold text-gray-800 mb-1">Vehículos por período</h3>
+                <p className="text-xs text-gray-400 mb-4">
+                  {occupancyFilters.groupBy === 'hour' && 'Ingresos agrupados por hora del día'}
+                  {occupancyFilters.groupBy === 'day'  && 'Ingresos agrupados por día'}
+                  {occupancyFilters.groupBy === 'month' && 'Ingresos agrupados por mes'}
+                </p>
+
+                {occupancyData.data.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                    <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p className="text-sm">Sin datos para el rango seleccionado</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={occupancyData.data} margin={{ bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={v => occupancyFilters.groupBy === 'month' ? formatMonthLabel(v) : v}
+                        angle={occupancyFilters.groupBy === 'day' ? -35 : 0}
+                        textAnchor={occupancyFilters.groupBy === 'day' ? 'end' : 'middle'}
+                        interval={0}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <Tooltip
+                        labelFormatter={v => occupancyFilters.groupBy === 'month' ? formatMonthLabel(v) : v}
+                      />
+                      <Legend />
+                      <Bar dataKey="cars" name="Carros" fill="#3b82f6" radius={[4, 4, 0, 0]} stackId="a" />
+                      <Bar dataKey="motorcycles" name="Motos" fill="#8b5cf6" radius={[4, 4, 0, 0]} stackId="a" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </>
+          )}
+
+          {!loading && !occupancyData && !occError && (
+            <div className="card text-center py-10 text-gray-400 text-sm">
+              Selecciona un rango de fechas y haz clic en <strong>Generar</strong>
+            </div>
           )}
         </div>
       )}

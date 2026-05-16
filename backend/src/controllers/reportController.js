@@ -62,13 +62,13 @@ async function occupancy(req, res) {
     let groupExpr, labelExpr;
     if (groupBy === 'month') {
       groupExpr = "DATE_FORMAT(entry_time, '%Y-%m')";
-      labelExpr = "DATE_FORMAT(entry_time, '%b %Y')";
+      labelExpr = "DATE_FORMAT(entry_time, '%Y-%m')";
     } else if (groupBy === 'day') {
-      groupExpr = 'DATE(entry_time)';
-      labelExpr = 'DATE(entry_time)';
+      groupExpr = "DATE_FORMAT(entry_time, '%Y-%m-%d')";
+      labelExpr = "DATE_FORMAT(entry_time, '%d/%m/%Y')";
     } else {
       groupExpr = 'HOUR(entry_time)';
-      labelExpr = "CONCAT(HOUR(entry_time), ':00')";
+      labelExpr = "CONCAT(LPAD(HOUR(entry_time), 2, '0'), ':00')";
     }
 
     const [rows] = await pool.query(
