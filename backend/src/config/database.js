@@ -10,20 +10,13 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  timezone: '-05:00',
+  timezone: '+00:00',
   connectTimeout: 10000,
 });
 
-// Zona horaria Colombia en cada conexión física del pool
+// Tolerancia a fallos: loguear errores del pool sin colapsar el proceso
 const underlying = pool.pool || pool;
 if (typeof underlying.on === 'function') {
-  underlying.on('connection', (conn) => {
-    conn.query("SET time_zone = '-05:00'", (err) => {
-      if (err) console.error('Error setting timezone:', err.message);
-    });
-  });
-
-  // Tolerancia a fallos: loguear errores del pool sin colapsar el proceso
   underlying.on('error', (err) => {
     console.error('Pool error (reconexión automática en curso):', err.message);
   });
@@ -42,7 +35,6 @@ async function withTimeout(queryFn, label = 'query') {
 async function testConnection() {
   try {
     const conn = await pool.getConnection();
-    await conn.query("SET time_zone = '-05:00'");
     console.log('✅ Conexión a MySQL establecida correctamente');
     conn.release();
   } catch (err) {

@@ -1,5 +1,5 @@
 const { pool } = require('../config/database');
-const { formatPlate, colombiaNow } = require('../utils/helpers');
+const { formatPlate } = require('../utils/helpers');
 
 async function registerPaymentAndExit(req, res) {
   const { plate, paymentMethod } = req.body;
@@ -19,11 +19,11 @@ async function registerPaymentAndExit(req, res) {
 
     const [vehicles] = await conn.query(
       `SELECT v.*, r.rate_per_hour,
-       TIMESTAMPDIFF(MINUTE, v.entry_time, ?) as minutes_parked
+       TIMESTAMPDIFF(MINUTE, v.entry_time, NOW()) as minutes_parked
        FROM vehicles v
        JOIN rates r ON r.vehicle_type = v.type AND r.active = 1
        WHERE v.plate = ? AND v.exit_time IS NULL FOR UPDATE`,
-      [colombiaNow(), formattedPlate]
+      [formattedPlate]
     );
 
     if (vehicles.length === 0) {
@@ -35,7 +35,7 @@ async function registerPaymentAndExit(req, res) {
     const fractions = Math.max(Math.ceil(vehicle.minutes_parked / 60), 1);
     const amount = fractions * vehicle.rate_per_hour;
 
-    const exitTime = colombiaNow();
+    const exitTime = new Date();
 
     const [payResult] = await conn.query(
       'INSERT INTO payments (vehicle_id, amount, payment_method, payment_time, operator_id) VALUES (?, ?, ?, ?, ?)',
