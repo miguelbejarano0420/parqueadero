@@ -17,7 +17,8 @@ const PORT = process.env.PORT || 3001;
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://parqueadero-git-main-miguelbejarano0420s-projects.vercel.app/',
+  'https://parqueadero-git-main-miguelbejarano0420s-projects.vercel.app',
+  'https://parqueadero-qlq4dedxl-miguelbejarano0420s-projects.vercel.app',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
