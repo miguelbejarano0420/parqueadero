@@ -13,14 +13,20 @@ const pool = mysql.createPool({
   timezone: '+00:00',
 });
 
-// Forzar zona horaria Colombia en cada conexión para que NOW() devuelva hora local
-pool.pool.on('connection', (conn) => {
-  conn.query("SET time_zone = '-05:00'");
-});
+// Forzar zona horaria Colombia en cada nueva conexión física del pool
+const underlying = pool.pool || pool;
+if (typeof underlying.on === 'function') {
+  underlying.on('connection', (conn) => {
+    conn.query("SET time_zone = '-05:00'", (err) => {
+      if (err) console.error('Error setting timezone:', err.message);
+    });
+  });
+}
 
 async function testConnection() {
   try {
     const conn = await pool.getConnection();
+    await conn.query("SET time_zone = '-05:00'");
     console.log('✅ Conexión a MySQL establecida correctamente');
     conn.release();
   } catch (err) {

@@ -5,12 +5,16 @@ import { formatCurrency, formatDate, paymentMethodLabel, vehicleTypeLabel } from
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'];
 
+function today() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
+
 export default function Reports() {
   const [tab, setTab] = useState('daily');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(today());
   const [occupancyFilters, setOccupancyFilters] = useState({
-    from: new Date().toISOString().split('T')[0],
-    to: new Date().toISOString().split('T')[0],
+    from: today(),
+    to: today(),
   });
   const [dailyData, setDailyData] = useState(null);
   const [occupancyData, setOccupancyData] = useState(null);

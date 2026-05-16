@@ -1,8 +1,11 @@
 const { pool } = require('../config/database');
 
+function colombiaToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
+
 async function dailyIncome(req, res) {
-  const { date } = req.query;
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = req.query.date || colombiaToday();
 
   try {
     const [totals] = await pool.query(
@@ -49,17 +52,16 @@ async function dailyIncome(req, res) {
       transactions,
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Error del servidor' });
+    console.error('dailyIncome error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 }
 
 async function occupancy(req, res) {
-  const { from, to } = req.query;
-  const fromDate = from || new Date().toISOString().split('T')[0];
-  const toDate = to || fromDate;
+  const fromDate = req.query.from || colombiaToday();
+  const toDate   = req.query.to   || fromDate;
 
   try {
-    // Siempre agrupa por día dentro del rango seleccionado
     const [rows] = await pool.query(
       `SELECT
          DATE_FORMAT(entry_time, '%Y-%m-%d') as period,
@@ -81,7 +83,8 @@ async function occupancy(req, res) {
 
     res.json({ success: true, data: rows, spaces: spaceSummary });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Error del servidor' });
+    console.error('occupancy error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 }
 
