@@ -64,10 +64,10 @@ async function occupancy(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT
-         DATE_FORMAT(entry_time, '%Y-%m-%d') as period,
-         DATE_FORMAT(entry_time, '%d/%m/%Y')  as label,
-         COUNT(*) as total_vehicles,
-         COUNT(CASE WHEN type = 'car' THEN 1 END) as cars,
+         DATE_FORMAT(entry_time, '%Y-%m-%d')      as period,
+         MIN(DATE_FORMAT(entry_time, '%d/%m/%Y')) as label,
+         COUNT(*)                                  as total_vehicles,
+         COUNT(CASE WHEN type = 'car' THEN 1 END)        as cars,
          COUNT(CASE WHEN type = 'motorcycle' THEN 1 END) as motorcycles
        FROM vehicles
        WHERE DATE(entry_time) BETWEEN ? AND ?
