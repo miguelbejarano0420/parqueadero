@@ -10,13 +10,17 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
     const result = await login(form.username, form.password);
     if (result.success) {
       navigate('/dashboard');
     } else {
       setError(result.message);
     }
+  }
+
+  function handleChange(field, value) {
+    setForm(f => ({ ...f, [field]: value }));
+    if (error) setError('');
   }
 
   return (
@@ -56,7 +60,7 @@ export default function Login() {
                 className="input-field"
                 placeholder="Ingresa tu usuario"
                 value={form.username}
-                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                onChange={e => handleChange('username', e.target.value)}
                 required
                 autoFocus
               />
@@ -68,7 +72,7 @@ export default function Login() {
                 className="input-field"
                 placeholder="Ingresa tu contraseña"
                 value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                onChange={e => handleChange('password', e.target.value)}
                 required
               />
             </div>
