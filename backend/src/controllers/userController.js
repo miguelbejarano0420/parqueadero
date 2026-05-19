@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
 
+// LISTAR USUARIOS — se excluye password_hash por seguridad.
+// Nunca debe enviarse el hash al frontend, aunque esté cifrado.
 async function getAll(req, res) {
   try {
     const [rows] = await pool.query(
@@ -12,6 +14,12 @@ async function getAll(req, res) {
   }
 }
 
+// CREAR USUARIO CON CONTRASEÑA HASHEADA
+// bcrypt.hash con factor 10 aplica 2^10 = 1024 rondas de salt.
+// Es deliberadamente lento para dificultar ataques de fuerza bruta offline
+// si la base de datos llegara a ser comprometida.
+// Se verifica duplicado antes de insertar para retornar 409 (Conflict) en vez
+// de dejar que MySQL lance un error de clave única (que sería un 500 genérico).
 async function create(req, res) {
   const username = (req.body.username || '').trim();
   const password = (req.body.password || '').trim();
@@ -45,6 +53,11 @@ async function create(req, res) {
   }
 }
 
+// ACTUALIZACIÓN PARCIAL CON QUERY DINÁMICA
+// Solo actualiza los campos que vienen en el body — patrón patch parcial.
+// Construye el SET dinámicamente para no sobreescribir campos que no se enviaron.
+// Si viene una nueva contraseña, se hashea antes de almacenarla.
+// El campo active acepta true/false del frontend y lo convierte a 1/0 para MySQL TINYINT.
 async function update(req, res) {
   const { id } = req.params;
   const { name, email, role, active, password } = req.body;
@@ -75,6 +88,11 @@ async function update(req, res) {
   }
 }
 
+// BAJA LÓGICA (SOFT DELETE) — no se elimina el registro de la BD.
+// Razón: los registros de vehículos y pagos tienen FK hacia users.operator_id.
+// Eliminar físicamente el usuario rompería la integridad referencial del historial.
+// active = 0 impide el login (authController verifica active = 1) pero preserva
+// la trazabilidad de quién registró cada vehículo o cobro en el pasado.
 async function remove(req, res) {
   const { id } = req.params;
   try {

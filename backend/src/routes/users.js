@@ -4,6 +4,9 @@ const { getAll, create, update, remove } = require('../controllers/userControlle
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
+// Todas las rutas de usuarios son exclusivas del administrador.
+// verifyToken verifica que el JWT sea válido (401 si no), requireAdmin
+// verifica que el rol sea 'admin' (403 si es operario).
 router.use(verifyToken, requireAdmin);
 
 router.get('/', getAll);
