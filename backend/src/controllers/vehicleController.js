@@ -1,22 +1,32 @@
 const { pool } = require('../config/database');
 const { detectVehicleType, formatPlate } = require('../utils/helpers');
 
+// REGISTRO DE ENTRADA DE VEHÍCULO
+// Operación crítica que usa una TRANSACCIÓN ACID completa para garantizar
+// que nunca quede un vehículo registrado sin espacio asignado, ni un espacio
+// ocupado sin vehículo. Si cualquier paso falla, rollback deshace todo.
 async function registerEntry(req, res) {
   const { plate } = req.body;
   if (!plate) {
     return res.status(400).json({ success: false, message: 'Placa requerida' });
   }
 
+  // Formatear y detectar tipo de vehículo por placa colombiana:
+  // ABC-123 → carro | ABC-12A → moto
   const formattedPlate = formatPlate(plate);
   const vehicleType = detectVehicleType(plate);
   if (!vehicleType) {
     return res.status(400).json({ success: false, message: 'Placa colombiana inválida (ej: ABC-123 carro, ABC-12A moto)' });
   }
 
+  // Obtener conexión dedicada del pool para la transacción
   const conn = await pool.getConnection();
   try {
+    // INICIO DE TRANSACCIÓN ACID
+    // Desde aquí, todas las operaciones son atómicas: o todas se confirman o ninguna.
     await conn.beginTransaction();
 
+    // Verificar que el vehículo no esté ya adentro
     const [active] = await conn.query(
       "SELECT id FROM vehicles WHERE plate = ? AND exit_time IS NULL",
       [formattedPlate]
@@ -26,6 +36,10 @@ async function registerEntry(req, res) {
       return res.status(409).json({ success: false, message: 'El vehículo ya está en el parqueadero' });
     }
 
+    // BLOQUEO PESIMISTA CON FOR UPDATE
+    // Selecciona el primer espacio disponible Y lo bloquea para esta transacción.
+    // Si dos operarios intentan registrar al mismo tiempo, el segundo espera
+    // a que el primero termine. Esto evita asignar el mismo espacio dos veces.
     const [spaces] = await conn.query(
       "SELECT id, number FROM spaces WHERE type = ? AND status = 'available' ORDER BY number LIMIT 1 FOR UPDATE",
       [vehicleType]
@@ -36,37 +50,48 @@ async function registerEntry(req, res) {
     }
 
     const space = spaces[0];
+
+    // Registrar el vehículo con NOW() — hora Colombia gracias al SET time_zone de la conexión
     const [result] = await conn.query(
       'INSERT INTO vehicles (plate, type, entry_time, space_id, operator_id) VALUES (?, ?, NOW(), ?, ?)',
       [formattedPlate, vehicleType, space.id, req.user.id]
     );
 
+    // Marcar el espacio como ocupado
     await conn.query("UPDATE spaces SET status = 'occupied' WHERE id = ?", [space.id]);
 
+    // Calcular ocupación total para emitir alertas al 90% y 100%
     const [summary] = await conn.query(
       "SELECT COUNT(*) as total, SUM(status = 'occupied') as occupied FROM spaces"
     );
     const { total, occupied } = summary[0];
     const pct = Math.round((occupied / total) * 100);
 
+    // COMMIT: confirmar todas las operaciones en la BD de forma permanente
     await conn.commit();
 
     res.status(201).json({
       success: true,
       message: 'Vehículo registrado',
       data: { id: result.insertId, plate: formattedPlate, type: vehicleType, space: space.number, entryTime: new Date() },
+      // Alertas de capacidad: nivel crítico al 100%, advertencia al 90%
       alert: pct >= 100 ? { level: 'critical', message: 'Parqueadero al 100% de capacidad' }
              : pct >= 90 ? { level: 'warning', message: `Parqueadero al ${pct}% de capacidad` }
              : null,
     });
   } catch (err) {
+    // ROLLBACK: si algo falló, deshacer todo lo que se hizo en esta transacción
     await conn.rollback();
     res.status(500).json({ success: false, message: 'Error del servidor' });
   } finally {
+    // Siempre devolver la conexión al pool, sin importar si hubo error o no
     conn.release();
   }
 }
 
+// LISTAR VEHÍCULOS ACTIVOS (sin fecha de salida)
+// TIMESTAMPDIFF calcula los minutos transcurridos desde la entrada hasta ahora.
+// Se usa en el frontend para mostrar el tiempo en tiempo real.
 async function getActive(req, res) {
   try {
     const [rows] = await pool.query(
@@ -83,6 +108,7 @@ async function getActive(req, res) {
   }
 }
 
+// BUSCAR VEHÍCULO POR PLACA (historial completo)
 async function getByPlate(req, res) {
   const { plate } = req.params;
   try {
@@ -102,6 +128,7 @@ async function getByPlate(req, res) {
   }
 }
 
+// HISTORIAL CON FILTROS (fecha, placa)
 async function getHistory(req, res) {
   const { from, to, plate } = req.query;
   try {
@@ -125,6 +152,9 @@ async function getHistory(req, res) {
   }
 }
 
+// CONSULTAR VEHÍCULO PARA COBRO (pre-checkout)
+// Devuelve el vehículo con el tiempo transcurrido y el total a cobrar
+// para que el operario pueda informar al cliente antes de confirmar el pago.
 async function getVehicleForExit(req, res) {
   const { plate } = req.params;
   const formattedPlate = formatPlate(plate);
@@ -143,6 +173,10 @@ async function getVehicleForExit(req, res) {
       return res.status(404).json({ success: false, message: 'Vehículo no encontrado o ya salió' });
     }
     const v = rows[0];
+
+    // CÁLCULO DE TARIFA POR FRACCIÓN DE HORA
+    // Math.ceil redondea hacia arriba: 61 minutos = 2 fracciones, no 1.
+    // Mínimo 1 fracción aunque el vehículo lleve menos de 60 minutos.
     const fractions = Math.max(Math.ceil(v.minutes_parked / 60), 1);
     const total = fractions * v.rate_per_hour;
 
